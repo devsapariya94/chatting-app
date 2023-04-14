@@ -23,6 +23,14 @@ class User(db.Model, UserMixin):
     password = db.Column(db.String(80), nullable=False)
     date_created = db.Column(db.DateTime(timezone=True), default=func.now())
 
+
+class Message (db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    message = db.Column(db.String(1000), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    date_created = db.Column(db.DateTime(timezone=True), default=func.now())
+
+
 if not os.path.exists(DB_NAME):
     db.create_all(app=app)
     print('Created Database!')
@@ -36,9 +44,16 @@ def load_user(user_id):
 @app.route('/chat')
 def chat():
     if not current_user.is_authenticated:
+       
         return redirect(url_for('login'))
+    # send the messages and the username to the template
+    messages = db.session.query(Message.message, User.username)\
+        .join(User, User.id == Message.user_id)\
+        .order_by(Message.date_created)\
+        .all()
+    print(messages)
 
-    return render_template('chat.html', username=current_user.username)
+    return render_template('chat.html', messages=messages, username=current_user.username)
 
 
 @app.route('/signup', methods=['GET', 'POST'])
@@ -89,7 +104,19 @@ def messageReceived(methods=['GET', 'POST']):
 @socketio.on('my event')
 def handle_my_custom_event(json, methods=['GET', 'POST']):
     print('received my event: ' + str(json))
-    socketio.emit('my response', json, callback=messageReceived)
+    
+    if 'user_name' in json and 'message' in json:
+        user = User.query.filter_by(username=json['user_name']).first()
+        if user:
+            message = Message(message=json['message'], user_id=user.id)
+            db.session.add(message)
+            db.session.commit()
+            
+            socketio.emit('my response', json, callback=messageReceived)
+    else:
+        socketio.emit('my response', json, callback=messageReceived)
+
+
 
 
 if __name__ == '__main__':
