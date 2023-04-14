@@ -6,7 +6,6 @@ from flask_sqlalchemy import SQLAlchemy
 import os
 from sqlalchemy.sql import func
 
-
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'vnkdjnfjknfl1232#'
 socketio = SocketIO(app)
@@ -15,8 +14,9 @@ login_manager = LoginManager(app)
 db = SQLAlchemy(app)
 DB_NAME = "database.db"
 app.config["SECRET_KEY"]="helloworld"
-app.config["SQLALCHEMY_DATABASE_URI"]= f'sqlite:///{DB_NAME}'
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///{}".format(DB_NAME)
 db.init_app(app)
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(15), unique=True, nullable=False)
@@ -39,7 +39,6 @@ def chat():
         return redirect(url_for('login'))
 
     return render_template('chat.html', username=current_user.username)
-
 
 
 @app.route('/signup', methods=['GET', 'POST'])
@@ -77,13 +76,21 @@ def login():
         return redirect(url_for('chat'))
     return render_template('login.html')
 
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('login'))
+
 def messageReceived(methods=['GET', 'POST']):
     print('message was received!!!')
+
 
 @socketio.on('my event')
 def handle_my_custom_event(json, methods=['GET', 'POST']):
     print('received my event: ' + str(json))
     socketio.emit('my response', json, callback=messageReceived)
+
 
 if __name__ == '__main__':
     socketio.run(app, debug=True)
