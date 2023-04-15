@@ -1,30 +1,59 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Chat Room</title>
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
   </head>
   <body>
-    <h1>Chat Room</h1>
+    <div class="container">
+      <h1 class="text-center my-5">Chat Room</h1>
 
-    <div class="room-list">
-      <h2>Rooms:</h2>
-      <ul>
-        {% for room in rooms %}
-        <li><a href="{{ url_for('chat', room_id=room.id) }}">{{ room.name }}</a></li>
-        {% endfor %}
-      </ul>
+      <div class="row">
+        <div class="col-md-6 mx-auto">
+          <div class="card mb-4">
+            <div class="card-header">
+              <h2 class="card-title">Rooms:</h2>
+            </div>
+            <ul class="list-group list-group-flush">
+              {% for room in rooms %}
+              <li class="list-group-item"><a href="{{ url_for('chat', room_id=room.id) }}">{{ room.name }}</a></li>
+              {% endfor %}
+            </ul>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">Create a new room:</h2>
+            </div>
+            <div class="card-body">
+              <form action="/create_room" method="post">
+                <div class="form-group">
+                  <label for="room-name">Room Name:</label>
+                  <input type="text" class="form-control" id="room-name" name="room_name" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Create</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row mt-5">
+        <div class="col-md-6 mx-auto">
+          <div class="text-center">
+            <a href="{{ url_for('logout') }}" class="btn btn-secondary">Logout</a>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <div class="create-room">
-      <h2>Create a new room:</h2>
-      <form action="/create_room" method="post">
-        <input type="text" name="room_name" placeholder="Room Name">
-        <input type="submit" value="Create">
-      </form>
-    </div>
-
-    <div class="logout">
-      <a href="{{ url_for('logout') }}">Logout</a>
-    </div>
+    <!-- Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
   </body>
 </html>
