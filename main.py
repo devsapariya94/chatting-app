@@ -47,7 +47,7 @@ def chat():
        
         return redirect(url_for('login'))
     # send the messages and the username to the template
-    messages = db.session.query(Message.message, User.username)\
+    messages = db.session.query(Message.message, User.username, Message.id)\
         .join(User, User.id == Message.user_id)\
         .order_by(Message.date_created)\
         .all()
@@ -101,20 +101,45 @@ def messageReceived(methods=['GET', 'POST']):
     print('message was received!!!')
 
 
+@app.route('/delete', methods=['GET', 'POST'])
+def delete():
+    if request.method == 'POST':
+        if not current_user.is_authenticated:
+            return redirect(url_for('login'))
+        print(11111111111111111111111111111111111111111111111)
+        data = request.get_json()
+        print(data)
+        id = data['id']
+        message = Message.query.filter_by(id=id).first()
+        db.session.delete(message)
+        db.session.commit()
+        socketio.emit('refresh chat')
+    return render_template('chat.html')
+
+
+
+@app.route('/save', methods=['GET', 'POST'])
+def save():
+    if request.method == 'POST':
+        if not current_user.is_authenticated:
+            return redirect(url_for('login'))
+        data = request.get_json()
+        message = data['message']
+        user_id = current_user.id
+        new_message = Message(message=message, user_id=user_id)
+        db.session.add(new_message)
+        db.session.commit()
+        json = {'message': message, 'username': current_user.username, 'id': new_message.id}
+        socketio.emit('my event', json, callback=messageReceived)
+        return str(new_message.id)
+    return render_template('chat.html')
+
+
 @socketio.on('my event')
 def handle_my_custom_event(json, methods=['GET', 'POST']):
     print('received my event: ' + str(json))
-    
-    if 'user_name' in json and 'message' in json:
-        user = User.query.filter_by(username=json['user_name']).first()
-        if user:
-            message = Message(message=json['message'], user_id=user.id)
-            db.session.add(message)
-            db.session.commit()
-            
-            socketio.emit('my response', json, callback=messageReceived)
-    else:
-        socketio.emit('my response', json, callback=messageReceived)
+    socketio.emit('my response', json, callback=messageReceived)
+
 
 
 
