@@ -5,7 +5,7 @@
   </head>
   <body>
     {% if messages == [] %}
-    <h3 style="color: #ccc; font-size: 30px">No message yet..</h3>
+    <h3 style="color: #ccc; font-size: 30px">No message yet.. </h3>
     {% endif %}
     <div class="message_holder">
       {% for message in messages %}
@@ -35,6 +35,7 @@
     </form>
 
     <a href="/logout">logout</a>
+    <a href="/room">all rooms</a>
     <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/1.7.3/socket.io.min.js"></script>
@@ -47,18 +48,22 @@
             } )
           } )
             var form = $( 'form' ).on( 'submit', function( e ) {
+              console.log('submitting form')
               e.preventDefault()
               let user_name = '{{ username }}';
+              let room_id = '{{ room_id }}';
               let user_input = $( 'input.message' ).val()
-
-
+              console.log('submitting form')
+              
+              console.log(room_id)
         $.ajax({
           url: "/save",
           type: "POST",
           dataType: "json",
           data: JSON.stringify({
               "username": user_name,
-              "message": user_input
+              "message": user_input,
+              "room_id": "{{ room_id }}"
           }),
           contentType: "application/json",
           success: function (response) {
@@ -67,7 +72,8 @@
               socket.emit( 'my event', {
                 user_name : user_name,
                 message : user_input,
-                id : msg_id
+                id : msg_id,
+                room_id : room_id
               } )
           },
       });
@@ -78,15 +84,14 @@
 
           socket.on( 'my response', function( msg ) {
             if( typeof msg.user_name !== 'undefined' ) {
-              console.log(msg.user_name)
-              console.log(msg)
+              if (msg.room_id == '{{ room_id }}') {
               $( 'h3' ).remove()
               $( 'div.message_holder' ).append( '<div><b style="color: #000">'+msg.user_name+'</b> '+msg.message+'</div>' )
               if (msg.user_name == '{{ username }}') {
   console.log('same user');
   $( 'div.message_holder' ).append( '<button type="button" class="btn btn-danger" onclick="deleteMessage('+msg.id+')">Delete</button>' );
 }
-            }
+            }}
           })
 
           socket.on('refresh chat', function() {

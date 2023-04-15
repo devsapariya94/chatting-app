@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Chat Room</title>
+  </head>
+  <body>
+    <h1>Chat Room</h1>
+
+    <div class="room-list">
+      <h2>Rooms:</h2>
+      <ul>
+        {% for room in rooms %}
+        <li><a href="{{ url_for('chat', room_id=room.id) }}">{{ room.name }}</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    <div class="create-room">
+      <h2>Create a new room:</h2>
+      <form action="/create_room" method="post">
+        <input type="text" name="room_name" placeholder="Room Name">
+        <input type="submit" value="Create">
+      </form>
+    </div>
+
+    <div class="logout">
+      <a href="{{ url_for('logout') }}">Logout</a>
+    </div>
+  </body>
+</html>

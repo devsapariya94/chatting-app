@@ -29,6 +29,15 @@ class Message (db.Model):
     message = db.Column(db.String(1000), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     date_created = db.Column(db.DateTime(timezone=True), default=func.now())
+    room_id = db.Column(db.Integer, db.ForeignKey('room.id'), nullable=False)
+
+
+class Room(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    date_created = db.Column(db.DateTime(timezone=True), default=func.now())
+    messages = db.relationship('Message', backref='room', lazy=True)
+    creator_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
 
 if not os.path.exists(DB_NAME):
@@ -41,20 +50,56 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 
-@app.route('/chat')
-def chat():
+@app.route('/room')
+def room():
     if not current_user.is_authenticated:
+        return redirect(url_for('login'))
+    rooms = db.session.query(Room.name, Room.id)\
+        .all()  
+    print(rooms)
+    return render_template('room.html', rooms=rooms)
+
+@app.route('/create_room', methods=['GET', 'POST'])
+def create_room():
+    if request.method == 'POST':
+        if not current_user.is_authenticated:
+            return redirect(url_for('login'))
+        name = request.form['room_name']
+        creator_id = current_user.id
+        new_room = Room(name=name, creator_id=creator_id)
+        db.session.add(new_room)
+        db.session.commit()
+        return redirect(url_for('room'))
+    return redirect(location=url_for('room'))
+
+# @app.route('/chat')
+# def chat():
+#     if not current_user.is_authenticated:
        
+#         return redirect(url_for('login'))
+#     # send the messages and the username to the template
+#     messages = db.session.query(Message.message, User.username, Message.id)\
+#         .join(User, User.id == Message.user_id)\
+#         .order_by(Message.date_created)\
+#         .all()
+#     print(messages)
+
+#     return render_template('chat.html', messages=messages, username=current_user.username)
+
+
+@app.route('/chat/<int:room_id>')
+def chat(room_id):
+    if not current_user.is_authenticated:
         return redirect(url_for('login'))
     # send the messages and the username to the template
     messages = db.session.query(Message.message, User.username, Message.id)\
         .join(User, User.id == Message.user_id)\
+        .filter(Message.room_id == room_id)\
         .order_by(Message.date_created)\
         .all()
     print(messages)
 
-    return render_template('chat.html', messages=messages, username=current_user.username)
-
+    return render_template('chat.html', messages=messages, username=current_user.username, room_id=room_id)
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
@@ -77,18 +122,16 @@ def login():
         password = request.form['password']
         print(username, password)
         user = User.query.filter_by(username=username).first()
-        print(user)
-        print(user.password)
         if user and user.password == password:
             print('Logged in successfully!')
             login_user(user, remember=True)
-            return redirect(url_for('chat'))
+            return redirect(url_for('room'))
         else:
             flash('Invalid Credentials')
             return redirect(url_for('login'))
 
     if current_user.is_authenticated:
-        return redirect(url_for('chat'))
+        return redirect(url_for('room'))
     return render_template('login.html')
 
 @app.route('/logout')
@@ -125,14 +168,14 @@ def save():
             return redirect(url_for('login'))
         data = request.get_json()
         message = data['message']
+        room_id = data['room_id']
         user_id = current_user.id
-        new_message = Message(message=message, user_id=user_id)
+        new_message = Message(message=message, user_id=user_id, room_id=room_id)
         db.session.add(new_message)
         db.session.commit()
-        json = {'message': message, 'username': current_user.username, 'id': new_message.id}
-        socketio.emit('my event', json, callback=messageReceived)
+        
         return str(new_message.id)
-    return render_template('chat.html')
+    return render_template('room.html')
 
 
 @socketio.on('my event')
