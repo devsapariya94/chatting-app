@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Flask_Chat_App</title>
+  </head>
+  <body>
+    {% if messages == [] %}
+    <h3 style="color: #ccc; font-size: 30px">No message yet.. </h3>
+    {% endif %}
+    <div class="message_holder">
+      {% for message in messages %}
+      <div>
+        <b style="color: #000">{{ message.username }}</b> {{ message.message }}
+      </div>
+      <!-- add delete button to async call-->
+      {% if message.username == username %}
+      <button
+        type="button"
+        class="btn btn-danger"
+        onclick="deleteMessage('{{ message.id }}')"
+      >
+        Delete
+      </button>
+      {% endif %} {% endfor %}
+    </div>
+
+    <form action="" method="POST">
+      <input
+        type="text"
+        class="message"
+        placeholder="Messages"
+        name="message"
+      />
+      <input type="submit" />
+    </form>
+
+    <a href="/logout">logout</a>
+    <a href="/room">all rooms</a>
+    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/1.7.3/socket.io.min.js"></script>
+    <script type="text/javascript">
+          var socket = io.connect('http://' + document.domain + ':' + location.port);
+
+          socket.on( 'connect', function() {
+            socket.emit( 'my event', {
+              data: 'User Connected'
+            } )
+          } )
+            var form = $( 'form' ).on( 'submit', function( e ) {
+              console.log('submitting form')
+              e.preventDefault()
+              let user_name = '{{ username }}';
+              let room_id = '{{ room_id }}';
+              let user_input = $( 'input.message' ).val()
+              console.log('submitting form')
+              
+              console.log(room_id)
+        $.ajax({
+          url: "/save",
+          type: "POST",
+          dataType: "json",
+          data: JSON.stringify({
+              "username": user_name,
+              "message": user_input,
+              "room_id": "{{ room_id }}"
+          }),
+          contentType: "application/json",
+          success: function (response) {
+              console.log(response);
+              msg_id = response;
+              socket.emit( 'my event', {
+                user_name : user_name,
+                message : user_input,
+                id : msg_id,
+                room_id : room_id
+              } )
+          },
+      });
+
+              
+              $( 'input.message' ).val( '' ).focus()
+            } )
+
+          socket.on( 'my response', function( msg ) {
+            if( typeof msg.user_name !== 'undefined' ) {
+              if (msg.room_id == '{{ room_id }}') {
+              $( 'h3' ).remove()
+              $( 'div.message_holder' ).append( '<div><b style="color: #000">'+msg.user_name+'</b> '+msg.message+'</div>' )
+              if (msg.user_name == '{{ username }}') {
+  console.log('same user');
+  $( 'div.message_holder' ).append( '<button type="button" class="btn btn-danger" onclick="deleteMessage('+msg.id+')">Delete</button>' );
+}
+            }}
+          })
+
+          socket.on('refresh chat', function() {
+              console.log('Refreshing chat messages');
+              window.location.reload();
+          });
+    </script>
+
+    <script type="text/javascript">
+      function deleteMessage(id) {
+        $.ajax({
+          url: "/delete",
+          type: "POST",
+          dataType: "json",
+          data: JSON.stringify({
+            id: id,
+          }),
+          contentType: "application/json",
+          success: function (response) {
+            console.log(response);
+          },
+        });
+      }
+    </script>
+  </body>
+</html>
