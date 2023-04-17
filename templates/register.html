@@ -29,6 +29,14 @@
                     </div>
                     <button type="submit" class="btn btn-primary btn-block">Sign Up</button>
                 </form>
+
+                <p class="text-center">Already have an account? <a href="/login">Login</a></p>
+
+                {% for mesg in get_flashed_messages() %}
+                <div class="alert alert-danger" role="alert">
+                    {{mesg}}
+                </div>
+      {% endfor %}
             </div>
         </div>
     </div>

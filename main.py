@@ -10,8 +10,7 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from flask_sqlalchemy import SQLAlchemy
 import os
 from sqlalchemy.sql import func
-
-
+import hashlib
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'vnkdjnfjknfl1232#'
@@ -47,6 +46,10 @@ class Room(db.Model):
     messages = db.relationship('Message', backref='room', lazy=True)
     creator_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
+class UserRoom(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    room_id = db.Column(db.Integer, db.ForeignKey('room.id'), nullable=False)
 
 if not os.path.exists(DB_NAME):
     with app.app_context():
@@ -63,8 +66,13 @@ def load_user(user_id):
 def room():
     if not current_user.is_authenticated:
         return redirect(url_for('login'))
-    rooms = db.session.query(Room.name, Room.id)\
-        .all()  
+    #select room name roomi and the creatro name from room and user table
+
+    rooms = db.session.query(Room.name, User.username, Room.id)\
+        .join(User, User.id == Room.creator_id)\
+        .all()
+        
+
     print(rooms)
     return render_template('room.html', rooms=rooms)
 
@@ -78,7 +86,10 @@ def create_room():
         new_room = Room(name=name, creator_id=creator_id)
         db.session.add(new_room)
         db.session.commit()
-        return redirect(url_for('room'))
+        new_user_room = UserRoom(user_id=creator_id, room_id=new_room.id)
+        db.session.add(new_user_room)
+        db.session.commit()
+        return redirect('/chat/{}'.format(new_room.id))
     return redirect(location=url_for('room'))
 
 # @app.route('/chat')
@@ -110,18 +121,50 @@ def chat(room_id):
 
     return render_template('chat.html', messages=messages, username=current_user.username, room_id=room_id)
 
+@app.route('/myroom', methods=['GET', 'POST'])
+def myroom():
+    user = current_user
+    rooms = db.session.query(Room.name, Room.id)\
+        .join(UserRoom, UserRoom.room_id == Room.id)\
+        .filter(UserRoom.user_id == user.id)\
+        .all()
+    print(rooms)
+    return render_template('myroom.html', rooms=rooms)
+
+
+
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
     if request.method == 'POST':
         username = request.form['username']
-        password = request.form['password']
+        # encrypt password using sha256
+
+        if User.query.filter_by(username=username).first():
+            print('Username already exists!')
+            flash(message='Username already exists!', category='error')
+            return redirect(url_for('signup'))
+        password = hashlib.sha256(request.form['password'].encode()).hexdigest()
+
         print(username, password)
         new_user = User(username=username, password=password)
         db.session.add(new_user)
         db.session.commit()
-        return redirect(url_for('login'))
-    return render_template('signup.html')
+        login_user(user=new_user, remember=True)
+        return redirect(url_for('room'))
+    return render_template('register.html')
 
+@app.route('/join_room/<int:room_id>', methods=['GET', 'POST'])
+def join_room(room_id):
+    if current_user.is_authenticated:
+        print(111111111111111111111111111111111111111111111111111111111)
+        user = current_user
+        user_room = UserRoom(user_id=user.id, room_id=room_id)
+        db.session.add(user_room)
+        db.session.commit()
+        print(2222222222222222222222222222222222222)
+        return redirect('/chat/{}'.format(room_id))
+    else:
+        return redirect(url_for('login'))
 
 @app.route('/')
 @app.route('/login', methods=['GET', 'POST'])
@@ -134,13 +177,13 @@ def login():
         if user and user.password == password:
             print('Logged in successfully!')
             login_user(user, remember=True)
-            return redirect(url_for('room'))
+            return redirect(url_for('myroom'))
         else:
             flash('Invalid Credentials')
             return redirect(url_for('login'))
 
     if current_user.is_authenticated:
-        return redirect(url_for('room'))
+        return redirect(url_for('myroom'))
     return render_template('login.html')
 
 @app.route('/logout')
@@ -158,7 +201,6 @@ def delete():
     if request.method == 'POST':
         if not current_user.is_authenticated:
             return redirect(url_for('login'))
-        print(11111111111111111111111111111111111111111111111)
         data = request.get_json()
         print(data)
         id = data['id']

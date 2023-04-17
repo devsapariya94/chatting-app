@@ -31,6 +31,12 @@
                         <p class="text-center mt-4">Don't have an account? <a href="/signup">Signup here</a></p>
                     </div>
                 </div>
+
+                {% for mesg in get_flashed_messages() %}
+                <div class="alert alert-danger" role="alert">
+                    {{mesg}}
+                </div>
+      {% endfor %}
             </div>
         </div>
     </div>
