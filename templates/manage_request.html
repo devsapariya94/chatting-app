@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <h1>Manage Join Requests</h1>
+  {% if requests %}
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Room Name</th>
+          <th>Requester</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for request in requests %}
+          <tr>
+            <td>{{request.name}}</td>
+            <td>{{request.username}}</td>
+            <td>
+              <form action="{{ url_for('recive_request', room_id=request[2], user_id=request[3]) }}" method="POST">
+                <button class="btn btn-success" type="submit">Accept</button>
+              </form>
+              <form action="{{ url_for('decline_request', room_id=request[2], user_id=request[3]) }}" method="POST">
+                <button class="btn btn-danger" type="submit">Decline</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>No join requests to manage.</p>
+  {% endif %}
+</body>
+</html>

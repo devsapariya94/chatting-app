@@ -13,6 +13,11 @@
   </head>
   <body>
     <div class="container">
+      {% for mesg in get_flashed_messages() %}
+                <div class="alert alert-success" role="alert">
+                    {{mesg}}
+                </div>
+      {% endfor %}
       <h1 class="text-center my-5">Chat Room</h1>
 
       <div class="row">
@@ -26,8 +31,17 @@
               <li class="list-group-item">
                 {{ room.name }}
                 <br>
-                created by: <b>{{ room.username }}</b> 
+                created by: <b>{{ room.username }}</b>
+                <br> 
+               
+                {% for request in requests %}
+                {% if current_userid == request.user_id and room.id == request.room_id %}
+                <div class="btn btn-primary float-right color-gray" > Request has been sent</div>
+                
+                {% else %}
                 <a href="{{ url_for('join_room', room_id=room.id) }}" class="btn btn-primary float-right">Join</a>
+                {% endif %}
+                {% endfor %}
               </li>
             {% endfor %}
             </ul>

@@ -51,6 +51,13 @@ class UserRoom(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     room_id = db.Column(db.Integer, db.ForeignKey('room.id'), nullable=False)
 
+
+class RoomJoinRequest(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    room_id = db.Column(db.Integer, db.ForeignKey('room.id'), nullable=False)
+
+
 if not os.path.exists(DB_NAME):
     with app.app_context():
         db.create_all()
@@ -66,15 +73,16 @@ def load_user(user_id):
 def room():
     if not current_user.is_authenticated:
         return redirect(url_for('login'))
-    #select room name roomi and the creatro name from room and user table
-
-    rooms = db.session.query(Room.name, User.username, Room.id)\
+    rooms = db.session.query(Room.name, Room.id, User.username)\
         .join(User, User.id == Room.creator_id)\
+        .filter(Room.id.notin_(db.session.query(UserRoom.room_id).filter(UserRoom.user_id == current_user.id)))\
         .all()
-        
-
-    print(rooms)
-    return render_template('room.html', rooms=rooms)
+    
+    
+    requests = db.session.query(RoomJoinRequest.user_id, RoomJoinRequest.room_id)\
+        .all()
+    current_userid  = current_user.id
+    return render_template('room.html', rooms=rooms, requests=requests, current_userid=current_userid)
 
 @app.route('/create_room', methods=['GET', 'POST'])
 def create_room():
@@ -112,6 +120,9 @@ def chat(room_id):
     if not current_user.is_authenticated:
         return redirect(url_for('login'))
     # send the messages and the username to the template
+    #chaeck if user is in room
+    if db.session.query(UserRoom).filter(UserRoom.user_id == current_user.id, UserRoom.room_id == room_id).count() == 0:
+        return redirect(url_for('room'))
     messages = db.session.query(Message.message, User.username, Message.id)\
         .join(User, User.id == Message.user_id)\
         .filter(Message.room_id == room_id)\
@@ -122,7 +133,10 @@ def chat(room_id):
     return render_template('chat.html', messages=messages, username=current_user.username, room_id=room_id)
 
 @app.route('/myroom', methods=['GET', 'POST'])
+
 def myroom():
+    if not current_user.is_authenticated:
+        return redirect(url_for('login'))
     user = current_user
     rooms = db.session.query(Room.name, Room.id)\
         .join(UserRoom, UserRoom.room_id == Room.id)\
@@ -156,15 +170,77 @@ def signup():
 @app.route('/join_room/<int:room_id>', methods=['GET', 'POST'])
 def join_room(room_id):
     if current_user.is_authenticated:
-        print(111111111111111111111111111111111111111111111111111111111)
-        user = current_user
-        user_room = UserRoom(user_id=user.id, room_id=room_id)
-        db.session.add(user_room)
+        userid = current_user.id
+        roomid = room_id
+        print(userid, roomid)
+        new_join_request = RoomJoinRequest(user_id=current_user.id, room_id=room_id)
+        print(new_join_request)
+        db.session.add(new_join_request)
         db.session.commit()
-        print(2222222222222222222222222222222222222)
-        return redirect('/chat/{}'.format(room_id))
+        print('Join request sent!')
+        flash(message='Join request sent!', category='success')
+        return redirect('/room')
     else:
         return redirect(url_for('login'))
+
+@app.route('/recive_request/<int:room_id>/<int:user_id>', methods=['GET', 'POST'])
+def recive_request(room_id,user_id):
+    if current_user.is_authenticated:
+        userid = user_id
+        roomid = room_id
+        print(userid, roomid)
+        #check if user is creator of room
+        if db.session.query(Room).filter(Room.id == roomid, Room.creator_id == current_user.id).count() == 0:
+            return redirect(url_for('room'))
+        #check if user is already in room
+        if db.session.query(UserRoom).filter(UserRoom.user_id == userid, UserRoom.room_id == roomid).count() == 0:
+            new_user_room = UserRoom(user_id=userid, room_id=roomid)
+            db.session.add(new_user_room)
+            db.session.commit()
+
+            db.session.query(RoomJoinRequest).filter(RoomJoinRequest.user_id == userid, RoomJoinRequest.room_id == roomid).delete()
+            db.session.commit()
+            print('User added to room!')
+            flash(message='User added to room!', category='success')
+        else:
+            print('User already in room!')
+            flash(message='User already in room!', category='success')
+        return redirect(url_for('manage_requests'))
+    else:
+        return redirect(url_for('login'))
+
+@app.route('/decline_request/<int:room_id>/<int:user_id>', methods=['GET', 'POST'])
+def decline_request(room_id, user_id):
+    if current_user.is_authenticated:
+        userid = user_id
+        roomid = room_id
+        print(userid, roomid)
+
+        if db.session.query(Room).filter(Room.id == roomid, Room.creator_id == current_user.id).count() == 0:
+            return redirect(url_for('room'))
+        if db.session.query(RoomJoinRequest).filter(RoomJoinRequest.user_id == userid, RoomJoinRequest.room_id == roomid).count() == 0:
+            print('User not in room!')
+            flash(message='User not in room!', category='success')
+        else:
+            db.session.query(RoomJoinRequest).filter(RoomJoinRequest.user_id == userid, RoomJoinRequest.room_id == roomid).delete()
+            db.session.commit()
+            print('User declined!')
+            flash(message='User declined!', category='success')
+        return redirect(url_for('manage_requests'))
+    else:
+        return redirect(url_for('login'))
+
+@app.route('/manage_requests', methods=['GET', 'POST'])
+@login_required
+def manage_requests():
+    user_id = current_user.id
+    requests = db.session.query(Room.name, User.username, Room.id, User.id)\
+        .join(RoomJoinRequest, RoomJoinRequest.room_id == Room.id)\
+        .join(User, User.id == RoomJoinRequest.user_id)\
+        .filter(Room.creator_id == user_id)\
+        .all()
+    return render_template('manage_request.html', requests=requests)
+
 
 @app.route('/')
 @app.route('/login', methods=['GET', 'POST'])
